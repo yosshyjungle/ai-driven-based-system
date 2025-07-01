@@ -8,34 +8,42 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white shadow">
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-8">
             <Link
               href="/"
               className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors"
             >
-              ブログ
+              DiffChecker
             </Link>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            {isSignedIn ? (
+            {isSignedIn && (
               <>
                 <Link
-                  href="/blog/new"
-                  className="text-gray-700 hover:text-blue-600 transition-colors"
+                  href="/code-diff"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
                 >
-                  記事作成
+                  コード差分比較
                 </Link>
-                <UserButton 
-                  appearance={{
-                    elements: {
-                      userButtonAvatarBox: 'w-8 h-8'
-                    }
-                  }}
-                />
+                <Link
+                  href="/admin/teacher"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-sm"
+                >
+                  先生設定
+                </Link>
               </>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-4">
+            {isSignedIn ? (
+              <UserButton
+                appearance={{
+                  elements: {
+                    userButtonAvatarBox: 'w-8 h-8'
+                  }
+                }}
+              />
             ) : (
               <Link
                 href="/sign-in"

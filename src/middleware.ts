@@ -9,7 +9,8 @@ const isPublicRoute = createRouteMatcher([
 
 const isProtectedRoute = createRouteMatcher([
   '/blog/new',
-  '/blog/[id]/edit'
+  '/blog/[id]/edit',
+  '/code-diff(.*)'
 ])
 
 export default clerkMiddleware(async (auth, req) => {
@@ -20,6 +21,11 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Protect POST, PUT, DELETE API routes (except webhook)
   if (req.nextUrl.pathname.startsWith('/api/blog') && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    await auth.protect()
+  }
+
+  // Protect code-diff API routes
+  if (req.nextUrl.pathname.startsWith('/api/code-diff')) {
     await auth.protect()
   }
 })

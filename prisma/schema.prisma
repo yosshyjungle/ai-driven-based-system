@@ -19,20 +19,44 @@ model User {
   firstName String?
   lastName  String?
   imageUrl  String?
+  role      String   @default("student") // "teacher" or "student"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  // ユーザーに関連する投稿
-  posts     Post[]   @relation("UserPosts")
+  // コード差分比較システム関連
+  teachingSessions Session[] @relation("TeacherSessions")
+  studentCodes     StudentCode[]
 }
 
-model Post {
-  id          Int      @id @default(autoincrement())
+// コード差分比較システムのテーブル
+model Session {
+  id          String   @id @default(uuid())
   title       String
-  description String
-  date        DateTime @default(now())
+  teacherId   String
+  teacher     User     @relation("TeacherSessions", fields: [teacherId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
-  // 投稿者
-  authorId    String?
-  author      User?    @relation("UserPosts", fields: [authorId], references: [id])
+  teacherCode  TeacherCode?
+  studentCodes StudentCode[]
+}
+
+model TeacherCode {
+  id        String   @id @default(uuid())
+  sessionId String   @unique
+  session   Session  @relation(fields: [sessionId], references: [id])
+  content   String   @default("")
+  updatedAt DateTime @updatedAt
+}
+
+model StudentCode {
+  id        String   @id @default(uuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id])
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id])
+  content   String   @default("")
+  updatedAt DateTime @updatedAt
+  
+  @@unique([sessionId, studentId])
 }

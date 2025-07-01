@@ -13,9 +13,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id // ClerkのユーザーID
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // ユーザーに関連する投稿
+  posts     Post[]   @relation("UserPosts")
+}
+
 model Post {
-  id Int @id @default(autoincrement())
-  title String
+  id          Int      @id @default(autoincrement())
+  title       String
   description String
-  date DateTime @default(now())
+  date        DateTime @default(now())
+  
+  // 投稿者
+  authorId    String?
+  author      User?    @relation("UserPosts", fields: [authorId], references: [id])
 }

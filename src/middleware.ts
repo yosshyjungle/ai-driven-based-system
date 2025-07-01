@@ -3,7 +3,8 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/',
-  '/blog/[id]'
+  '/blog/[id]',
+  '/api/clerk/webhook'
 ])
 
 const isProtectedRoute = createRouteMatcher([
@@ -16,8 +17,8 @@ export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
     await auth.protect()
   }
-  
-  // Protect POST, PUT, DELETE API routes
+
+  // Protect POST, PUT, DELETE API routes (except webhook)
   if (req.nextUrl.pathname.startsWith('/api/blog') && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
     await auth.protect()
   }

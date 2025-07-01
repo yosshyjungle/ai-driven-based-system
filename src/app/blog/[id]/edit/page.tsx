@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -13,7 +13,7 @@ interface Post {
   date: string
 }
 
-export default function EditBlogPost({ params }: { params: { id: string } }) {
+export default function EditBlogPost({ params }: { params: Promise<{ id: string }> }) {
   const { isSignedIn } = useAuth()
   const router = useRouter()
   const [post, setPost] = useState<Post | null>(null)
@@ -23,9 +23,11 @@ export default function EditBlogPost({ params }: { params: { id: string } }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const resolvedParams = use(params)
+
   useEffect(() => {
     fetchPost()
-  }, [params.id])
+  }, [resolvedParams.id])
 
   if (!isSignedIn) {
     return (
@@ -40,7 +42,7 @@ export default function EditBlogPost({ params }: { params: { id: string } }) {
 
   const fetchPost = async () => {
     try {
-      const response = await fetch(`/api/blog/${params.id}`)
+      const response = await fetch(`/api/blog/${resolvedParams.id}`)
       if (!response.ok) {
         if (response.status === 404) {
           setError('記事が見つかりません')
@@ -62,7 +64,7 @@ export default function EditBlogPost({ params }: { params: { id: string } }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!title.trim() || !description.trim()) {
       setError('タイトルと内容を入力してください')
       return
@@ -72,7 +74,7 @@ export default function EditBlogPost({ params }: { params: { id: string } }) {
     setError(null)
 
     try {
-      const response = await fetch(`/api/blog/${params.id}`, {
+      const response = await fetch(`/api/blog/${resolvedParams.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +89,7 @@ export default function EditBlogPost({ params }: { params: { id: string } }) {
         throw new Error('記事の更新に失敗しました')
       }
 
-      router.push(`/blog/${params.id}`)
+      router.push(`/blog/${resolvedParams.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : '予期しないエラーが発生しました')
     } finally {
@@ -122,11 +124,11 @@ export default function EditBlogPost({ params }: { params: { id: string } }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
+
       <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="flex items-center mb-8">
           <Link
-            href={`/blog/${params.id}`}
+            href={`/blog/${resolvedParams.id}`}
             className="text-gray-600 hover:text-gray-900 mr-4"
           >
             ← 記事詳細に戻る
@@ -183,7 +185,7 @@ export default function EditBlogPost({ params }: { params: { id: string } }) {
                 {saving ? '更新中...' : '記事を更新'}
               </button>
               <Link
-                href={`/blog/${params.id}`}
+                href={`/blog/${resolvedParams.id}`}
                 className="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-colors"
               >
                 キャンセル

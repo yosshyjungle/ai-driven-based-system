@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -13,7 +13,7 @@ interface Post {
   date: string
 }
 
-export default function BlogPost({ params }: { params: { id: string } }) {
+export default function BlogPost({ params }: { params: Promise<{ id: string }> }) {
   const { isSignedIn } = useAuth()
   const router = useRouter()
   const [post, setPost] = useState<Post | null>(null)
@@ -21,13 +21,15 @@ export default function BlogPost({ params }: { params: { id: string } }) {
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const resolvedParams = use(params)
+
   useEffect(() => {
     fetchPost()
-  }, [params.id])
+  }, [resolvedParams.id])
 
   const fetchPost = async () => {
     try {
-      const response = await fetch(`/api/blog/${params.id}`)
+      const response = await fetch(`/api/blog/${resolvedParams.id}`)
       if (!response.ok) {
         if (response.status === 404) {
           setError('記事が見つかりません')
@@ -53,7 +55,7 @@ export default function BlogPost({ params }: { params: { id: string } }) {
     setDeleting(true)
 
     try {
-      const response = await fetch(`/api/blog/${params.id}`, {
+      const response = await fetch(`/api/blog/${resolvedParams.id}`, {
         method: 'DELETE',
       })
 
@@ -112,7 +114,7 @@ export default function BlogPost({ params }: { params: { id: string } }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
+
       <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center">
@@ -159,7 +161,7 @@ export default function BlogPost({ params }: { params: { id: string } }) {
               })}
             </time>
           </header>
-          
+
           <div className="prose max-w-none">
             <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
               {post.description}

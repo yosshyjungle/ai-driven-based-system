@@ -8,6 +8,7 @@ interface CodeDiffViewerProps {
     isTeacher: boolean
     onTeacherCodeChange?: (code: string) => void
     onStudentCodeChange?: (code: string) => void
+    selectedStudentName?: string
 }
 
 export default function CodeDiffViewer({
@@ -16,16 +17,17 @@ export default function CodeDiffViewer({
     isTeacher,
     onTeacherCodeChange,
     onStudentCodeChange,
+    selectedStudentName,
 }: CodeDiffViewerProps) {
     const [localTeacherCode, setLocalTeacherCode] = useState(teacherCode)
     const [localStudentCode, setLocalStudentCode] = useState(studentCode)
     const [diffLines, setDiffLines] = useState<Array<{
-        type: 'same' | 'added' | 'removed'
+        type: 'same' | 'added' | 'removed' | 'modified'
         teacher: string
         student: string
         index: number
     }>>([])
-    const debounceTimerRef = useRef<NodeJS.Timeout>()
+    const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
         setLocalTeacherCode(teacherCode)
@@ -49,14 +51,14 @@ export default function CodeDiffViewer({
             const teacherLine = teacherLines[i] || ''
             const studentLine = studentLines[i] || ''
 
-            let type: 'same' | 'added' | 'removed' = 'same'
+            let type: 'same' | 'added' | 'removed' | 'modified' = 'same'
             if (teacherLine !== studentLine) {
                 if (teacherLine && !studentLine) {
                     type = 'removed'
                 } else if (!teacherLine && studentLine) {
                     type = 'added'
                 } else {
-                    type = 'added' // 変更は追加として扱う
+                    type = 'modified' // 変更された行
                 }
             }
 
@@ -112,8 +114,8 @@ export default function CodeDiffViewer({
                             onChange={(e) => handleTeacherCodeChange(e.target.value)}
                             disabled={!isTeacher}
                             className={`w-full h-full resize-none p-4 font-mono text-sm border-0 focus:outline-none focus:ring-0 ${isTeacher
-                                    ? 'bg-white'
-                                    : 'bg-gray-50 text-gray-600 cursor-not-allowed'
+                                ? 'bg-white'
+                                : 'bg-gray-50 text-gray-600 cursor-not-allowed'
                                 }`}
                             placeholder={isTeacher ? 'ここにコードを入力してください...' : ''}
                             style={{ minHeight: '500px' }}
@@ -123,39 +125,69 @@ export default function CodeDiffViewer({
 
                 {/* 差分表示 */}
                 <div className="border-r border-gray-200">
-                    <div className="bg-green-50 px-4 py-2 border-b border-gray-200">
-                        <h3 className="font-semibold text-green-900">差分比較</h3>
-                        <p className="text-sm text-green-700">
-                            <span className="inline-block w-3 h-3 bg-red-200 mr-1 rounded"></span>削除・変更
-                            <span className="inline-block w-3 h-3 bg-green-200 ml-3 mr-1 rounded"></span>追加
-                        </p>
+                    <div className="bg-purple-50 px-4 py-2 border-b border-gray-200">
+                        <h3 className="font-semibold text-purple-900">差分比較</h3>
+                        <div className="text-xs text-purple-700 mt-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                                <span className="inline-block w-3 h-3 bg-red-200 border border-red-300 rounded"></span>
+                                <span>削除された行</span>
+                                <span className="inline-block w-3 h-3 bg-green-200 border border-green-300 rounded ml-2"></span>
+                                <span>追加された行</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="inline-block w-3 h-3 bg-yellow-200 border border-yellow-300 rounded"></span>
+                                <span>変更された行</span>
+                                <span className="inline-block w-3 h-3 bg-gray-100 border border-gray-300 rounded ml-2"></span>
+                                <span>同じ行</span>
+                            </div>
+                        </div>
                     </div>
                     <div className="h-full overflow-auto bg-gray-50 p-4" style={{ minHeight: '500px' }}>
                         <div className="font-mono text-sm space-y-1">
-                            {diffLines.map((line, index) => (
-                                <div key={index} className="flex">
-                                    <div className="w-8 text-gray-400 text-right mr-2 flex-shrink-0">
-                                        {index + 1}
-                                    </div>
-                                    <div className="flex-1">
-                                        {line.type === 'same' && (
-                                            <div className="text-gray-800">
-                                                {line.teacher || line.student || ' '}
-                                            </div>
-                                        )}
-                                        {line.type === 'removed' && (
-                                            <div className="bg-red-100 text-red-800 px-1 rounded">
-                                                - {line.teacher}
-                                            </div>
-                                        )}
-                                        {line.type === 'added' && (
-                                            <div className="bg-green-100 text-green-800 px-1 rounded">
-                                                + {line.student}
-                                            </div>
-                                        )}
-                                    </div>
+                            {diffLines.length === 0 ? (
+                                <div className="text-center text-gray-500 py-8">
+                                    <p>コードを入力すると差分が表示されます</p>
                                 </div>
-                            ))}
+                            ) : (
+                                diffLines.map((line, index) => (
+                                    <div key={index} className="flex hover:bg-gray-100 rounded transition-colors">
+                                        <div className="w-10 text-gray-400 text-right mr-3 flex-shrink-0 py-1">
+                                            {index + 1}
+                                        </div>
+                                        <div className="flex-1 py-1">
+                                            {line.type === 'same' && (
+                                                <div className="text-gray-800 px-2 py-1">
+                                                    {line.teacher || line.student || '\u00A0'}
+                                                </div>
+                                            )}
+                                            {line.type === 'removed' && (
+                                                <div className="bg-red-100 border-l-4 border-red-400 text-red-800 px-2 py-1 rounded-r">
+                                                    <span className="text-red-600 font-bold mr-1">-</span>
+                                                    {line.teacher}
+                                                </div>
+                                            )}
+                                            {line.type === 'added' && (
+                                                <div className="bg-green-100 border-l-4 border-green-400 text-green-800 px-2 py-1 rounded-r">
+                                                    <span className="text-green-600 font-bold mr-1">+</span>
+                                                    {line.student}
+                                                </div>
+                                            )}
+                                            {line.type === 'modified' && (
+                                                <div className="space-y-1">
+                                                    <div className="bg-red-50 border-l-4 border-red-300 text-red-700 px-2 py-1 rounded-r">
+                                                        <span className="text-red-500 font-bold mr-1">-</span>
+                                                        {line.teacher}
+                                                    </div>
+                                                    <div className="bg-green-50 border-l-4 border-green-300 text-green-700 px-2 py-1 rounded-r">
+                                                        <span className="text-green-500 font-bold mr-1">+</span>
+                                                        {line.student}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -164,7 +196,10 @@ export default function CodeDiffViewer({
                 <div>
                     <div className="bg-orange-50 px-4 py-2 border-b border-gray-200">
                         <h3 className="font-semibold text-orange-900">
-                            {isTeacher ? '学生のコード（参照）' : 'あなたのコード'}
+                            {isTeacher ?
+                                (selectedStudentName ? `${selectedStudentName}のコード（参照）` : '学生のコード（参照）') :
+                                'あなたのコード'
+                            }
                         </h3>
                         <p className="text-sm text-orange-700">
                             {isTeacher ? '参照のみ' : '編集可能'}
@@ -176,8 +211,8 @@ export default function CodeDiffViewer({
                             onChange={(e) => handleStudentCodeChange(e.target.value)}
                             disabled={isTeacher}
                             className={`w-full h-full resize-none p-4 font-mono text-sm border-0 focus:outline-none focus:ring-0 ${!isTeacher
-                                    ? 'bg-white'
-                                    : 'bg-gray-50 text-gray-600 cursor-not-allowed'
+                                ? 'bg-white'
+                                : 'bg-gray-50 text-gray-600 cursor-not-allowed'
                                 }`}
                             placeholder={!isTeacher ? 'ここにあなたのコードを入力してください...' : ''}
                             style={{ minHeight: '500px' }}

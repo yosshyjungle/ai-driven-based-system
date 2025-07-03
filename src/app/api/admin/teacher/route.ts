@@ -19,9 +19,21 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const { email } = await req.json()
+        const { email, forceAssign } = await req.json()
 
-        if (!email || email !== TEACHER_EMAIL) {
+        // 緊急モード: TEACHER_EMAILが未設定（デフォルト値）の場合、任意のメールアドレスを先生にできる
+        const isEmergencyMode = TEACHER_EMAIL === 'teacher@example.com'
+
+        if (!email) {
+            return NextResponse.json(
+                { error: 'Email is required' },
+                { status: 400 }
+            )
+        }
+
+        // 通常モードではTEACHER_EMAILと一致する必要がある
+        // 緊急モードまたはforceAssignフラグがtrueの場合は任意のメールアドレスを許可
+        if (!isEmergencyMode && !forceAssign && email !== TEACHER_EMAIL) {
             return NextResponse.json(
                 { error: 'Invalid teacher email' },
                 { status: 400 }
@@ -56,14 +68,20 @@ export async function POST(req: NextRequest) {
         })
 
         // データベースでも更新
-        await prisma.user.update({
+        await prisma.user.upsert({
             where: { id: userId },
-            data: { role: 'teacher' }
+            update: { role: 'teacher' },
+            create: {
+                id: userId,
+                email: email,
+                role: 'teacher'
+            }
         })
 
         return NextResponse.json({
             message: 'Teacher role assigned successfully',
-            teacherId: userId
+            teacherId: userId,
+            isEmergencyMode: isEmergencyMode
         })
 
     } catch (error) {
@@ -88,9 +106,12 @@ export async function GET() {
             }
         })
 
+        const isEmergencyMode = TEACHER_EMAIL === 'teacher@example.com'
+
         return NextResponse.json({
             teacher: teacher || null,
-            teacherEmail: TEACHER_EMAIL
+            teacherEmail: TEACHER_EMAIL,
+            isEmergencyMode: isEmergencyMode
         })
 
     } catch (error) {

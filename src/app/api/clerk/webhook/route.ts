@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
+import { clerkClient } from '@clerk/nextjs/server'
 
 const prisma = new PrismaClient()
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET!
+// 先生のメールアドレス（環境変数から取得）
+const TEACHER_EMAIL = process.env.TEACHER_EMAIL || 'teacher@example.com'
 
 type ClerkUserEvent = {
     type: string
@@ -105,7 +108,38 @@ async function handleUserCreated(userData: ClerkUserEvent['data']) {
         return
     }
 
+    // メールアドレスがTEACHER_EMAILと一致するかチェック
+    const isTeacher = primaryEmail.email_address === TEACHER_EMAIL
+    const userRole = isTeacher ? 'teacher' : 'student'
+
     try {
+        // 既存の先生ユーザーがいる場合は学生に変更
+        if (isTeacher) {
+            const existingTeachers = await prisma.user.findMany({
+                where: { role: 'teacher' },
+                select: { id: true }
+            })
+
+            await prisma.user.updateMany({
+                where: { role: 'teacher' },
+                data: { role: 'student' }
+            })
+
+            // 既存先生のClerkメタデータも更新
+            const client = await clerkClient()
+            for (const teacher of existingTeachers) {
+                try {
+                    await client.users.updateUserMetadata(teacher.id, {
+                        publicMetadata: { role: 'student' }
+                    })
+                } catch (err) {
+                    console.error(`Error updating Clerk metadata for user ${teacher.id}:`, err)
+                }
+            }
+
+            console.log('Existing teacher users converted to students')
+        }
+
         const user = await prisma.user.create({
             data: {
                 id: userData.id,
@@ -113,14 +147,52 @@ async function handleUserCreated(userData: ClerkUserEvent['data']) {
                 firstName: userData.first_name,
                 lastName: userData.last_name,
                 imageUrl: userData.image_url,
+                role: userRole,
             },
         })
 
-        console.log('User created in database:', user.id)
+        // Clerkのユーザーメタデータにもロールを設定
+        const client = await clerkClient()
+        await client.users.updateUserMetadata(userData.id, {
+            publicMetadata: { role: userRole }
+        })
+
+        console.log(`User created in database: ${user.id} with role: ${userRole}`)
     } catch (error) {
         console.error('Error creating user in database:', error)
         // 既に存在する場合はupsertを試行
         try {
+            // 既存の先生ユーザーがいる場合は学生に変更
+            if (isTeacher) {
+                const existingTeachers = await prisma.user.findMany({
+                    where: {
+                        role: 'teacher',
+                        id: { not: userData.id }
+                    },
+                    select: { id: true }
+                })
+
+                await prisma.user.updateMany({
+                    where: {
+                        role: 'teacher',
+                        id: { not: userData.id }
+                    },
+                    data: { role: 'student' }
+                })
+
+                // 既存先生のClerkメタデータも更新
+                const client = await clerkClient()
+                for (const teacher of existingTeachers) {
+                    try {
+                        await client.users.updateUserMetadata(teacher.id, {
+                            publicMetadata: { role: 'student' }
+                        })
+                    } catch (err) {
+                        console.error(`Error updating Clerk metadata for user ${teacher.id}:`, err)
+                    }
+                }
+            }
+
             await prisma.user.upsert({
                 where: { id: userData.id },
                 update: {
@@ -128,6 +200,7 @@ async function handleUserCreated(userData: ClerkUserEvent['data']) {
                     firstName: userData.first_name,
                     lastName: userData.last_name,
                     imageUrl: userData.image_url,
+                    role: userRole,
                 },
                 create: {
                     id: userData.id,
@@ -135,9 +208,17 @@ async function handleUserCreated(userData: ClerkUserEvent['data']) {
                     firstName: userData.first_name,
                     lastName: userData.last_name,
                     imageUrl: userData.image_url,
+                    role: userRole,
                 },
             })
-            console.log('User upserted in database:', userData.id)
+
+            // Clerkのユーザーメタデータにもロールを設定
+            const client = await clerkClient()
+            await client.users.updateUserMetadata(userData.id, {
+                publicMetadata: { role: userRole }
+            })
+
+            console.log(`User upserted in database: ${userData.id} with role: ${userRole}`)
         } catch (upsertError) {
             console.error('Error upserting user:', upsertError)
         }
@@ -155,7 +236,45 @@ async function handleUserUpdated(userData: ClerkUserEvent['data']) {
         return
     }
 
+    // メールアドレスがTEACHER_EMAILと一致するかチェック
+    const isTeacher = primaryEmail.email_address === TEACHER_EMAIL
+
     try {
+        // 既存の先生ユーザーがいる場合は学生に変更（現在のユーザー以外）
+        if (isTeacher) {
+            const existingTeachers = await prisma.user.findMany({
+                where: {
+                    role: 'teacher',
+                    id: { not: userData.id }
+                },
+                select: { id: true }
+            })
+
+            await prisma.user.updateMany({
+                where: {
+                    role: 'teacher',
+                    id: { not: userData.id }
+                },
+                data: { role: 'student' }
+            })
+
+            // 既存先生のClerkメタデータも更新
+            const client = await clerkClient()
+            for (const teacher of existingTeachers) {
+                try {
+                    await client.users.updateUserMetadata(teacher.id, {
+                        publicMetadata: { role: 'student' }
+                    })
+                } catch (err) {
+                    console.error(`Error updating Clerk metadata for user ${teacher.id}:`, err)
+                }
+            }
+
+            console.log('Existing teacher users converted to students')
+        }
+
+        const userRole = isTeacher ? 'teacher' : 'student'
+
         const user = await prisma.user.update({
             where: { id: userData.id },
             data: {
@@ -163,10 +282,17 @@ async function handleUserUpdated(userData: ClerkUserEvent['data']) {
                 firstName: userData.first_name,
                 lastName: userData.last_name,
                 imageUrl: userData.image_url,
+                role: userRole,
             },
         })
 
-        console.log('User updated in database:', user.id)
+        // Clerkのユーザーメタデータにもロールを設定
+        const client = await clerkClient()
+        await client.users.updateUserMetadata(userData.id, {
+            publicMetadata: { role: userRole }
+        })
+
+        console.log(`User updated in database: ${user.id} with role: ${userRole}`)
     } catch (error) {
         console.error('Error updating user in database:', error)
     }

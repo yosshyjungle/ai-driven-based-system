@@ -8,7 +8,7 @@ interface RealtimeTextCompareProps {
 }
 
 export default function RealtimeTextCompare({ sessionId = 'test-session-123' }: RealtimeTextCompareProps) {
-    const { isSignedIn, userId } = useAuth()
+    const { isSignedIn } = useAuth()
     const { user } = useUser()
     const [teacherCode, setTeacherCode] = useState('')
     const [studentCode, setStudentCode] = useState('')

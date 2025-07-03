@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+// import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import CodeDiffViewer from '@/components/CodeDiffViewer'
@@ -38,7 +38,7 @@ interface Student {
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
     const { isSignedIn, userId } = useAuth()
     const { user } = useUser()
-    const router = useRouter()
+    // const router = useRouter()
     const [session, setSession] = useState<Session | null>(null)
     const [teacherCode, setTeacherCode] = useState<TeacherCode>({ content: '', updatedAt: '' })
     const [studentCode, setStudentCode] = useState<StudentCode>({ content: '', updatedAt: '' })

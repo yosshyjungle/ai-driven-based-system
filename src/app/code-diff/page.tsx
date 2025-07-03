@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+// import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 
 interface Session {

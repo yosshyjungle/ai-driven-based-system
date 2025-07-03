@@ -56,7 +56,7 @@ export const GET = async (req: Request) => {
 
                 try {
                     controller.enqueue(encoder.encode(heartbeatMessage));
-                } catch (error) {
+                } catch {
                     console.log(`Heartbeat failed for ${connectionId}, cleaning up`);
                     clearInterval(heartbeat);
                     connections.delete(connectionId);
@@ -145,8 +145,8 @@ function broadcastUpdate(type: 'original' | 'changed', content: string) {
         try {
             connection.controller.enqueue(connection.encoder.encode(message));
             successCount++;
-        } catch (error) {
-            console.error(`Failed to send message to connection ${connectionId}:`, error);
+        } catch {
+            console.error(`Failed to send message to connection ${connectionId}`);
             connections.delete(connectionId);
             errorCount++;
         }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
+import { addConnection, removeConnection, hasConnection } from "@/lib/broadcast";
 
 // Prismaクライアントのシングルトンパターン
 const globalForPrisma = globalThis as unknown as {
@@ -10,14 +11,6 @@ const globalForPrisma = globalThis as unknown as {
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-
-// アクティブなSSE接続を管理するためのMap
-const connections = new Map<string, {
-    controller: ReadableStreamDefaultController;
-    sessionId: string;
-    userId: string;
-    encoder: TextEncoder;
-}>();
 
 // Prismaの自動接続管理を使用するため、connectDB関数は削除
 
@@ -62,7 +55,7 @@ export const GET = async (req: Request, { params }: { params: Promise<{ id: stri
                 console.log(`Creating SSE connection: ${connectionId}`);
 
                 // 接続をMapに追加
-                connections.set(connectionId, {
+                addConnection(connectionId, {
                     controller,
                     sessionId: resolvedParams.id,
                     userId,
@@ -80,13 +73,13 @@ export const GET = async (req: Request, { params }: { params: Promise<{ id: stri
                 try {
                     controller.enqueue(encoder.encode(initMessage));
                     console.log(`Initial message sent to ${connectionId}`);
-                } catch (error) {
-                    console.error(`Error sending initial message to ${connectionId}:`, error);
+                } catch {
+                    console.error(`Error sending initial message to ${connectionId}`);
                 }
 
                 // 定期的なハートビート（30秒間隔）
                 const heartbeat = setInterval(() => {
-                    if (!connections.has(connectionId)) {
+                    if (!hasConnection(connectionId)) {
                         clearInterval(heartbeat);
                         return;
                     }
@@ -98,10 +91,10 @@ export const GET = async (req: Request, { params }: { params: Promise<{ id: stri
 
                     try {
                         controller.enqueue(encoder.encode(heartbeatMessage));
-                    } catch (error) {
+                    } catch {
                         console.log(`Heartbeat failed for ${connectionId}, cleaning up`);
                         clearInterval(heartbeat);
-                        connections.delete(connectionId);
+                        removeConnection(connectionId);
                     }
                 }, 30000);
 
@@ -109,7 +102,7 @@ export const GET = async (req: Request, { params }: { params: Promise<{ id: stri
                 const cleanup = () => {
                     console.log(`Cleaning up connection: ${connectionId}`);
                     clearInterval(heartbeat);
-                    connections.delete(connectionId);
+                    removeConnection(connectionId);
                 };
 
                 req.signal.addEventListener('abort', cleanup);
@@ -117,7 +110,7 @@ export const GET = async (req: Request, { params }: { params: Promise<{ id: stri
 
             cancel() {
                 console.log(`Stream cancelled for ${connectionId}`);
-                connections.delete(connectionId);
+                removeConnection(connectionId);
             }
         });
 
@@ -137,67 +130,3 @@ export const GET = async (req: Request, { params }: { params: Promise<{ id: stri
     }
 };
 
-// コード更新をすべての接続に通知する関数
-export function broadcastCodeUpdate(sessionId: string, type: 'teacher' | 'student', content: string, studentId?: string) {
-    console.log(`Broadcasting ${type} code update to session ${sessionId}${studentId ? ` for student ${studentId}` : ''}`);
-    console.log(`Current connections: ${connections.size}`);
-
-    const message = `data: ${JSON.stringify({
-        type: 'code_update',
-        codeType: type,
-        content,
-        sessionId,
-        studentId: type === 'student' ? studentId : undefined,
-        timestamp: new Date().toISOString()
-    })}\n\n`;
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const [connectionId, connection] of connections.entries()) {
-        if (connection.sessionId === sessionId) {
-            try {
-                connection.controller.enqueue(connection.encoder.encode(message));
-                successCount++;
-                console.log(`Message sent to connection: ${connectionId}`);
-            } catch (error) {
-                console.error(`Failed to send message to connection ${connectionId}:`, error);
-                connections.delete(connectionId);
-                errorCount++;
-            }
-        }
-    }
-
-    console.log(`Broadcast complete: ${successCount} successful, ${errorCount} failed`);
-}
-
-// 学生参加通知をすべての接続に送信する関数
-export function broadcastStudentJoined(sessionId: string, studentInfo: { id: string; firstName?: string; lastName?: string; email: string }) {
-    console.log(`Broadcasting student joined to session ${sessionId}: ${studentInfo.firstName} ${studentInfo.lastName}`);
-
-    const message = `data: ${JSON.stringify({
-        type: 'student_joined',
-        sessionId,
-        student: studentInfo,
-        timestamp: new Date().toISOString()
-    })}\n\n`;
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const [connectionId, connection] of connections.entries()) {
-        if (connection.sessionId === sessionId) {
-            try {
-                connection.controller.enqueue(connection.encoder.encode(message));
-                successCount++;
-                console.log(`Student joined message sent to connection: ${connectionId}`);
-            } catch (error) {
-                console.error(`Failed to send student joined message to connection ${connectionId}:`, error);
-                connections.delete(connectionId);
-                errorCount++;
-            }
-        }
-    }
-
-    console.log(`Student joined broadcast complete: ${successCount} successful, ${errorCount} failed`);
-} 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
-import { broadcastCodeUpdate, broadcastStudentJoined } from "../live/route";
+import { broadcastCodeUpdate, broadcastStudentJoined } from "@/lib/broadcast";
 
 // Prismaクライアントのシングルトンパターン
 const globalForPrisma = globalThis as unknown as {
@@ -100,7 +100,7 @@ export const PUT = async (req: Request, { params }: { params: Promise<{ id: stri
 
         // セッションの存在確認（テスト用セッションは除く）
         let session = null;
-        let isTestSession = resolvedParams.id === 'test-session-123';
+        const isTestSession = resolvedParams.id === 'test-session-123';
         console.log('Is test session:', isTestSession);
 
         if (!isTestSession) {

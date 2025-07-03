@@ -7,13 +7,13 @@ const prisma = new PrismaClient();
 async function connectDB() {
     try {
         await prisma.$connect();
-    } catch (err) {
+    } catch {
         throw new Error("DB接続に失敗しました");
     }
 }
 
 // セッション一覧取得
-export const GET = async (req: Request) => {
+export const GET = async () => {
     try {
         const { userId } = await auth();
 
@@ -43,7 +43,7 @@ export const GET = async (req: Request) => {
         return NextResponse.json({ message: "Success", sessions }, { status: 200 });
     } catch (err) {
         console.error('Sessions GET error:', err);
-        return NextResponse.json({ message: "Error", err }, { status: 500 });
+        return NextResponse.json({ message: "Error", error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
     } finally {
         await prisma.$disconnect();
     }
@@ -109,7 +109,7 @@ export const POST = async (req: Request) => {
         return NextResponse.json({ message: "Success", session }, { status: 201 });
     } catch (err) {
         console.error('Session POST error:', err);
-        return NextResponse.json({ message: "Error", err }, { status: 500 });
+        return NextResponse.json({ message: "Error", error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
     } finally {
         await prisma.$disconnect();
     }

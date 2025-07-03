@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+// import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 
 interface Teacher {
@@ -15,7 +15,7 @@ interface Teacher {
 export default function TeacherAdminPage() {
     const { isSignedIn, userId } = useAuth()
     const { user } = useUser()
-    const router = useRouter()
+    // const router = useRouter()
     const [teacher, setTeacher] = useState<Teacher | null>(null)
     const [teacherEmail, setTeacherEmail] = useState('')
     const [inputEmail, setInputEmail] = useState('')
